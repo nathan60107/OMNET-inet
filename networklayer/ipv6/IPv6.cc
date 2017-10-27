@@ -1005,6 +1005,11 @@ void IPv6::reinjectQueuedDatagram(const INetworkDatagram *datagram)
     }
 }
 
+void IPv6::reinjectAllQueuedDatagram()
+{
+    //
+}
+
 INetfilter::IHook::Result IPv6::datagramPreRoutingHook(INetworkDatagram *datagram, const InterfaceEntry *inIE, const InterfaceEntry *& outIE, L3Address& nextHopAddr)
 {
     for (auto & elem : hooks) {

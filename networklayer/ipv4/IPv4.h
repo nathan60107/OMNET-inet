@@ -290,6 +290,7 @@ class INET_API IPv4 : public QueueBase, public INetfilter, public ILifecycle, pu
      * re-injects a previously queued datagram
      */
     void reinjectQueuedDatagram(const INetworkDatagram *datagram) override;
+    void reinjectAllQueuedDatagram()override;
 
     /**
      * send packet on transportOut gate specified by protocolId

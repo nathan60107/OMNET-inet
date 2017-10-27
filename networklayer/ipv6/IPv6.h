@@ -206,6 +206,7 @@ class INET_API IPv6 : public QueueBase, public ILifecycle, public INetfilter, pu
     virtual void unregisterHook(int priority, IHook *hook) override;
     virtual void dropQueuedDatagram(const INetworkDatagram *daragram) override;
     virtual void reinjectQueuedDatagram(const INetworkDatagram *datagram) override;
+    virtual void reinjectAllQueuedDatagram()override;
 
   protected:
     /**

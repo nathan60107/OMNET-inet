@@ -38,6 +38,9 @@
 #include "inet/networklayer/generic/GenericDatagram.h"
 #endif
 
+#include <queue>
+std::queue<int> qu;
+
 namespace inet {
 
 Define_Module(GREEDY);
@@ -120,6 +123,7 @@ void GREEDY::handleMessage(cMessage *message)
 
 void GREEDY::processSelfMessage(cMessage *message)
 {
+    //EV_DEBUG << "Receive a beacon timer" <<endl;
     if (message == beaconTimer)
         processBeaconTimer();
     else if (message == purgeNeighborsTimer)
@@ -142,7 +146,7 @@ void GREEDY::processMessage(cMessage *message)
 
 void GREEDY::scheduleBeaconTimer()
 {
-    EV_DEBUG << "Scheduling beacon timer" << endl;
+    EV_DEBUG << "Scheduling beacon timer, beaconInterval:" << beaconInterval <<endl;///已修改
     scheduleAt(simTime() + beaconInterval, beaconTimer);
 }
 
@@ -157,6 +161,7 @@ void GREEDY::processBeaconTimer()
     }
     scheduleBeaconTimer();
     schedulePurgeNeighborsTimer();
+    //networkProtocol->reinjectAllQueuedDatagram();
 }
 
 //
@@ -501,7 +506,7 @@ L3Address GREEDY::findGreedyRoutingNextHop(INetworkDatagram *datagram, const L3A
             bestNeighbor = neighborAddress;
         }
     }
-    if (bestNeighbor.isUnspecified()) {
+    /*if (bestNeighbor.isUnspecified()) {
         EV_DEBUG << "Switching to perimeter routing: destination = " << destination << endl;
         greedyOption->setRoutingMode(GREEDY_PERIMETER_ROUTING);
         greedyOption->setPerimeterRoutingStartPosition(selfPosition);
@@ -509,7 +514,7 @@ L3Address GREEDY::findGreedyRoutingNextHop(INetworkDatagram *datagram, const L3A
         greedyOption->setCurrentFaceFirstReceiverAddress(L3Address());
         return findPerimeterRoutingNextHop(datagram, destination);
     }
-    else
+    else*/
         return bestNeighbor;
 }
 
@@ -576,8 +581,9 @@ INetfilter::IHook::Result GREEDY::routeDatagram(INetworkDatagram *datagram, cons
     EV_INFO << "Finding next hop: source = " << source << ", destination = " << destination << endl;
     nextHop = findNextHop(datagram, destination);
     if (nextHop.isUnspecified()) {
-        EV_WARN << "No next hop found, dropping packet: source = " << source << ", destination = " << destination << endl;
-        return STOLEN;
+        EV_WARN << "[QUEUE]No next hop found, dropping packet: source = " << source << ", destination = " << destination << endl;
+        delayDatagram(datagram);
+        return QUEUE;
     }
     else {
         EV_INFO << "Next hop found: source = " << source << ", destination = " << destination << ", nextHop: " << nextHop << endl;
@@ -585,6 +591,7 @@ INetfilter::IHook::Result GREEDY::routeDatagram(INetworkDatagram *datagram, cons
         greedyOption->setSenderAddress(getSelfAddress());
         // KLUDGE: find output interface
         outputInterfaceEntry = interfaceTable->getInterface(1);
+        networkProtocol->reinjectAllQueuedDatagram();
         return ACCEPT;
     }
 }
@@ -694,9 +701,10 @@ INetfilter::IHook::Result GREEDY::datagramPreRoutingHook(INetworkDatagram *datag
 {
     Enter_Method("datagramPreRoutingHook");
     const L3Address& destination = datagram->getDestinationAddress();
-    if (destination.isMulticast() || destination.isBroadcast() || routingTable->isLocalAddress(destination))
+    if (destination.isMulticast() || destination.isBroadcast() || routingTable->isLocalAddress(destination)){
+        networkProtocol->reinjectAllQueuedDatagram();
         return ACCEPT;
-    else
+    }else
         return routeDatagram(datagram, outputInterfaceEntry, nextHop);
 }
 
@@ -704,9 +712,10 @@ INetfilter::IHook::Result GREEDY::datagramLocalOutHook(INetworkDatagram *datagra
 {
     Enter_Method("datagramLocalOutHook");
     const L3Address& destination = datagram->getDestinationAddress();
-    if (destination.isMulticast() || destination.isBroadcast() || routingTable->isLocalAddress(destination))
+    if (destination.isMulticast() || destination.isBroadcast() || routingTable->isLocalAddress(destination)){
+        networkProtocol->reinjectAllQueuedDatagram();
         return ACCEPT;
-    else {
+    }else {
         setGreedyOptionOnNetworkDatagram(datagram);
         return routeDatagram(datagram, outputInterfaceEntry, nextHop);
     }
@@ -756,5 +765,47 @@ void GREEDY::receiveSignal(cComponent *source, simsignal_t signalID, cObject *ob
     }
 }
 
+//
+//以下自行新增
+//
+
+void GREEDY::delayDatagram(INetworkDatagram *datagram)
+{
+    EV_DETAIL << "Queuing datagram, source " << datagram->getSourceAddress() << ", destination " << datagram->getDestinationAddress() << endl;
+    const L3Address& target = datagram->getDestinationAddress();
+    targetAddressToDelayedPackets.insert(std::pair<L3Address, INetworkDatagram *>(target, datagram));
+}
+
+/*void GREEDY::reinjectAllDatagram()
+{
+    networkProtocol->
+
+    /*EV_DETAIL << "Time up, reinject all datagram, originator " << getSelfIPAddress() << endl;
+    ASSERT(hasOngoingRouteDiscovery(target));
+
+    auto lt = targetAddressToDelayedPackets.lower_bound(target);
+    auto ut = targetAddressToDelayedPackets.upper_bound(target);
+
+    // reinject the delayed datagrams
+    for (auto it = lt; it != ut; it++) {
+        INetworkDatagram *datagram = it->second;
+        EV_DETAIL << "Sending queued datagram: source " << datagram->getSourceAddress() << ", destination " << datagram->getDestinationAddress() << endl;
+        networkProtocol->reinjectQueuedDatagram(const_cast<const INetworkDatagram *>(datagram));
+    }
+
+    // clear the multimap
+    targetAddressToDelayedPackets.erase(lt, ut);
+
+    // we have a route for the destination, thus we must cancel the WaitForRREPTimer events
+    auto waitRREPIter = waitForRREPTimers.find(target);
+    ASSERT(waitRREPIter != waitForRREPTimers.end());
+    cancelAndDelete(waitRREPIter->second);
+    waitForRREPTimers.erase(waitRREPIter);*
+}*/
+
+////注意不要超過namespace inet的範圍
+
 } // namespace inet
+
+
 

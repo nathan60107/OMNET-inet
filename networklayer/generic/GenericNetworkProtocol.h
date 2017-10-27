@@ -158,6 +158,7 @@ class INET_API GenericNetworkProtocol : public QueueBase, public INetfilter, pub
     virtual void unregisterHook(int priority, IHook *hook) override;
     virtual void dropQueuedDatagram(const INetworkDatagram *datagram) override;
     virtual void reinjectQueuedDatagram(const INetworkDatagram *datagram) override;
+    virtual void reinjectAllQueuedDatagram()override;
 
   protected:
     /**

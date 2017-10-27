@@ -116,6 +116,7 @@ class INET_API INetfilter
      * route discovery process.
      */
     virtual void reinjectQueuedDatagram(const INetworkDatagram *datagram) = 0;
+    virtual void reinjectAllQueuedDatagram() = 0;
 };
 
 } // namespace inet

@@ -561,6 +561,11 @@ void GenericNetworkProtocol::reinjectQueuedDatagram(const INetworkDatagram *data
     }
 }
 
+void GenericNetworkProtocol::reinjectAllQueuedDatagram()
+{
+    //
+}
+
 INetfilter::IHook::Result GenericNetworkProtocol::datagramPreRoutingHook(GenericDatagram *datagram, const InterfaceEntry *inIE, const InterfaceEntry *& outIE, L3Address& nextHop)
 {
     for (auto & elem : hooks) {

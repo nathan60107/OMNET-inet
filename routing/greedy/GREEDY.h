@@ -164,6 +164,13 @@ class INET_API GREEDY : public cSimpleModule, public ILifecycle, public cListene
 
     // notification
     virtual void receiveSignal(cComponent *source, simsignal_t signalID, cObject *obj DETAILS_ARG) override;
+
+
+    ///以下為自行新增
+    // internal
+    std::multimap<L3Address, INetworkDatagram *> targetAddressToDelayedPackets;    // queue for the datagrams we have no route for
+    void delayDatagram(INetworkDatagram *datagram);
+    void reinjectAllDatagram();
 };
 
 } // namespace inet
