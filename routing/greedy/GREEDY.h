@@ -72,6 +72,8 @@ class INET_API GREEDY : public cSimpleModule, public ILifecycle, public cListene
     cMessage *beaconTimer = nullptr;
     cMessage *purgeNeighborsTimer = nullptr;
     PositionTable neighborPositionTable;
+    ///¦Û³Ð
+    int printFunctionName = 0;
 
   public:
     GREEDY();
@@ -102,7 +104,9 @@ class INET_API GREEDY : public cSimpleModule, public ILifecycle, public cListene
 
     // handling beacons
     GREEDYBeacon *createBeacon();
+    GREEDYBeacon *createACK(const char *name, const L3Address& address, Coord coordinate);
     void sendBeacon(GREEDYBeacon *beacon, double delay);
+    void sendACK(GREEDYBeacon *beacon, double delay, const L3Address& address);
     void processBeacon(GREEDYBeacon *beacon);
 
     // handling packets

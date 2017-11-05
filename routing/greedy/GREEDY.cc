@@ -38,8 +38,6 @@
 #include "inet/networklayer/generic/GenericDatagram.h"
 #endif
 
-#include <queue>
-std::queue<int> qu;
 
 namespace inet {
 
@@ -111,6 +109,7 @@ void GREEDY::initialize(int stage)
 
 void GREEDY::handleMessage(cMessage *message)
 {
+    if(printFunctionName)EV_DEBUG << " handleMessage()\n";
     if (message->isSelfMessage())
         processSelfMessage(message);
     else
@@ -123,6 +122,7 @@ void GREEDY::handleMessage(cMessage *message)
 
 void GREEDY::processSelfMessage(cMessage *message)
 {
+    if(printFunctionName)EV_DEBUG << "In processSelfMessage()\n";
     //EV_DEBUG << "Receive a beacon timer" <<endl;
     if (message == beaconTimer)
         processBeaconTimer();
@@ -134,9 +134,21 @@ void GREEDY::processSelfMessage(cMessage *message)
 
 void GREEDY::processMessage(cMessage *message)
 {
-    if (dynamic_cast<UDPPacket *>(message))
-        processUDPPacket(static_cast<UDPPacket *>(message));
-    else
+    if(printFunctionName)EV_DEBUG << "In processMessage()\n";
+    if (dynamic_cast<UDPPacket *>(message)){
+        std::string str("ACK of");
+        std::string str2(static_cast<UDPPacket *>(message)->getName());
+        if(str2.compare(0, 6,str)!=0){
+            processUDPPacket(static_cast<UDPPacket *>(message));
+        }else{
+            EV_DEBUG << str2 <<" detected!! do something.\n";
+            std::size_t found = str2.find("UDP");
+            if(found!=std::string::npos){
+                str2 = str2.substr(found);
+                networkProtocol->dropQueuedDatagramByString(str2);
+            }
+        }
+    }else
         throw cRuntimeError("Unknown message");
 }
 
@@ -146,12 +158,14 @@ void GREEDY::processMessage(cMessage *message)
 
 void GREEDY::scheduleBeaconTimer()
 {
+    if(printFunctionName)EV_DEBUG << "In scheduleBeaconTimer()\n";
     EV_DEBUG << "Scheduling beacon timer, beaconInterval:" << beaconInterval <<endl;///¤w­×§ï
     scheduleAt(simTime() + beaconInterval, beaconTimer);
 }
 
 void GREEDY::processBeaconTimer()
 {
+    if(printFunctionName)EV_DEBUG << "In processBeaconTimer()\n";
     EV_DEBUG << "Processing beacon timer" << endl;
     L3Address selfAddress = getSelfAddress();
     if (!selfAddress.isUnspecified()) {
@@ -161,7 +175,7 @@ void GREEDY::processBeaconTimer()
     }
     scheduleBeaconTimer();
     schedulePurgeNeighborsTimer();
-    //networkProtocol->reinjectAllQueuedDatagram();
+    networkProtocol->reinjectAllQueuedDatagram();
 }
 
 //
@@ -170,6 +184,7 @@ void GREEDY::processBeaconTimer()
 
 void GREEDY::schedulePurgeNeighborsTimer()
 {
+    if(printFunctionName)EV_DEBUG << "In schedulePurgeNeighborsTimer()\n";
     EV_DEBUG << "Scheduling purge neighbors timer" << endl;
     simtime_t nextExpiration = getNextNeighborExpiration();
     if (nextExpiration == SimTime::getMaxTime()) {
@@ -190,6 +205,7 @@ void GREEDY::schedulePurgeNeighborsTimer()
 
 void GREEDY::processPurgeNeighborsTimer()
 {
+    if(printFunctionName)EV_DEBUG << "In processPurgeNeighborsTimer()\n";
     EV_DEBUG << "Processing purge neighbors timer" << endl;
     purgeNeighbors();
     schedulePurgeNeighborsTimer();
@@ -201,6 +217,7 @@ void GREEDY::processPurgeNeighborsTimer()
 
 void GREEDY::sendUDPPacket(UDPPacket *packet, double delay)
 {
+    if(printFunctionName)EV_DEBUG << "In sendUDPPacket()\n";
     if (delay == 0)
         send(packet, "ipOut");
     else
@@ -209,10 +226,13 @@ void GREEDY::sendUDPPacket(UDPPacket *packet, double delay)
 
 void GREEDY::processUDPPacket(UDPPacket *packet)
 {
+    if(printFunctionName)EV_DEBUG << "In processUDPPacket()\n";
     cPacket *encapsulatedPacket = packet->decapsulate();
-    if (dynamic_cast<GREEDYBeacon *>(encapsulatedPacket))
+    if (dynamic_cast<GREEDYBeacon *>(encapsulatedPacket)){
+        EV_DEBUG << "I receive a UDP packet~. name:" << dynamic_cast<GREEDYBeacon *>(encapsulatedPacket)->getName()
+                << "" << encapsulatedPacket->getDisplayString() << "\n";
         processBeacon(static_cast<GREEDYBeacon *>(encapsulatedPacket));
-    else
+    }else
         throw cRuntimeError("Unknown UDP packet");
     delete packet;
 }
@@ -223,6 +243,7 @@ void GREEDY::processUDPPacket(UDPPacket *packet)
 
 GREEDYBeacon *GREEDY::createBeacon()
 {
+    if(printFunctionName)EV_DEBUG << "In createBeacon()\n";
     GREEDYBeacon *beacon = new GREEDYBeacon("GREEDYBeacon");
     beacon->setAddress(getSelfAddress());
     beacon->setPosition(mobility->getCurrentPosition());
@@ -230,8 +251,19 @@ GREEDYBeacon *GREEDY::createBeacon()
     return beacon;
 }
 
+GREEDYBeacon *GREEDY::createACK(const char *name, const L3Address& address, Coord coordinate)
+{
+    if(printFunctionName)EV_DEBUG << "In createACK()" << name << "\n";
+    GREEDYBeacon *beacon = new GREEDYBeacon(name);
+    beacon->setAddress(address);
+    beacon->setPosition(coordinate);
+    beacon->setByteLength(address.getAddressType()->getAddressByteLength() + positionByteLength);
+    return beacon;
+}
+
 void GREEDY::sendBeacon(GREEDYBeacon *beacon, double delay)
 {
+    if(printFunctionName)EV_DEBUG << "In sendBeacon()\n";
     EV_INFO << "Sending beacon: address = " << beacon->getAddress() << ", position = " << beacon->getPosition() << endl;
     INetworkProtocolControlInfo *networkProtocolControlInfo = addressType->createNetworkProtocolControlInfo();
     networkProtocolControlInfo->setTransportProtocol(IP_PROT_MANET);
@@ -246,8 +278,26 @@ void GREEDY::sendBeacon(GREEDYBeacon *beacon, double delay)
     sendUDPPacket(udpPacket, delay);
 }
 
+void GREEDY::sendACK(GREEDYBeacon *beacon, double delay, const L3Address& address)
+{
+    if(printFunctionName)EV_DEBUG << "In sendACK()\n";
+    EV_INFO << "Sending ACK: address = " << beacon->getAddress() << ", position = " << beacon->getPosition() << endl;
+    INetworkProtocolControlInfo *networkProtocolControlInfo = addressType->createNetworkProtocolControlInfo();
+    networkProtocolControlInfo->setTransportProtocol(IP_PROT_MANET);
+    networkProtocolControlInfo->setHopLimit(255);
+    networkProtocolControlInfo->setDestinationAddress(address);
+    networkProtocolControlInfo->setSourceAddress(getSelfAddress());
+    UDPPacket *udpPacket = new UDPPacket(beacon->getName());
+    udpPacket->encapsulate(beacon);
+    udpPacket->setSourcePort(GREEDY_UDP_PORT);
+    udpPacket->setDestinationPort(GREEDY_UDP_PORT);
+    udpPacket->setControlInfo(dynamic_cast<cObject *>(networkProtocolControlInfo));
+    sendUDPPacket(udpPacket, delay);
+}
+
 void GREEDY::processBeacon(GREEDYBeacon *beacon)
 {
+    if(printFunctionName)EV_DEBUG << "In processBeacon()\n";
     EV_INFO << "Processing beacon: address = " << beacon->getAddress() << ", position = " << beacon->getPosition() << endl;
     neighborPositionTable.setPosition(beacon->getAddress(), beacon->getPosition());
     delete beacon;
@@ -259,6 +309,7 @@ void GREEDY::processBeacon(GREEDYBeacon *beacon)
 
 GREEDYOption *GREEDY::createGreedyOption(L3Address destination, cPacket *content)
 {
+    if(printFunctionName)EV_DEBUG << "In createGreedyOption()\n";
     GREEDYOption *greedyOption = new GREEDYOption();
     greedyOption->setRoutingMode(GREEDY_GREEDY_ROUTING);
     // KLUDGE: implement position registry protocol
@@ -269,6 +320,7 @@ GREEDYOption *GREEDY::createGreedyOption(L3Address destination, cPacket *content
 
 int GREEDY::computeOptionLength(GREEDYOption *option)
 {
+    if(printFunctionName)EV_DEBUG << "In computeOptionLength()\n";
     // routingMode
     int routingModeBytes = 1;
     // destinationPosition, perimeterRoutingStartPosition, perimeterRoutingForwardPosition
@@ -287,11 +339,13 @@ int GREEDY::computeOptionLength(GREEDYOption *option)
 
 bool GREEDY::isNodeUp() const
 {
+    if(printFunctionName)EV_DEBUG << "In isNodeUp()\n";
     return !nodeStatus || nodeStatus->getState() == NodeStatus::UP;
 }
 
 void GREEDY::configureInterfaces()
 {
+    if(printFunctionName)EV_DEBUG << "In configureInterfaces()\n";
     // join multicast groups
     cPatternMatcher interfaceMatcher(interfaces, false, true, false);
     for (int i = 0; i < interfaceTable->getNumInterfaces(); i++) {
@@ -307,6 +361,7 @@ void GREEDY::configureInterfaces()
 
 Coord GREEDY::intersectSections(Coord& begin1, Coord& end1, Coord& begin2, Coord& end2)
 {
+    //if(printFunctionName) EV_DEBUG << "In intersectSections()\n";
     double x1 = begin1.x;
     double y1 = begin1.y;
     double x2 = end1.x;
@@ -328,12 +383,14 @@ Coord GREEDY::intersectSections(Coord& begin1, Coord& end1, Coord& begin2, Coord
 
 Coord GREEDY::getDestinationPosition(const L3Address& address) const
 {
+    if(printFunctionName)EV_DEBUG << "In getDestinationPosition()\n";
     // KLUDGE: implement position registry protocol
     return globalPositionTable.getPosition(address);
 }
 
 Coord GREEDY::getNeighborPosition(const L3Address& address) const
 {
+    if(printFunctionName)EV_DEBUG << "In getNeighborPosition()\n";
     return neighborPositionTable.getPosition(address);
 }
 
@@ -343,6 +400,7 @@ Coord GREEDY::getNeighborPosition(const L3Address& address) const
 
 double GREEDY::getVectorAngle(Coord vector)
 {
+    //if(printFunctionName)EV_DEBUG << "In getVectorAngle()\n";
     double angle = atan2(-vector.y, vector.x);
     if (angle < 0)
         angle += 2 * M_PI;
@@ -351,11 +409,13 @@ double GREEDY::getVectorAngle(Coord vector)
 
 double GREEDY::getDestinationAngle(const L3Address& address)
 {
+    if(printFunctionName)EV_DEBUG << "In getDestinationAngle()\n";
     return getVectorAngle(getDestinationPosition(address) - mobility->getCurrentPosition());
 }
 
 double GREEDY::getNeighborAngle(const L3Address& address)
 {
+    if(printFunctionName)EV_DEBUG << "In getNeighborAngle()\n";
     return getVectorAngle(getNeighborPosition(address) - mobility->getCurrentPosition());
 }
 
@@ -365,11 +425,13 @@ double GREEDY::getNeighborAngle(const L3Address& address)
 
 std::string GREEDY::getHostName() const
 {
+    if(printFunctionName)EV_DEBUG << "In getHostName()\n";
     return host->getFullName();
 }
 
 L3Address GREEDY::getSelfAddress() const
 {
+    if(printFunctionName)EV_DEBUG << "In getSelfAddress()\n";
     //TODO choose self address based on a new 'interfaces' parameter
     L3Address ret = routingTable->getRouterIdAsGeneric();
 #ifdef WITH_IPv6
@@ -388,6 +450,7 @@ L3Address GREEDY::getSelfAddress() const
 
 L3Address GREEDY::getSenderNeighborAddress(INetworkDatagram *datagram) const
 {
+    if(printFunctionName)EV_DEBUG << "In getSenderNeighborAddress()\n";
     const GREEDYOption *greedyOption = getGreedyOptionFromNetworkDatagram(datagram);
     return greedyOption->getSenderAddress();
 }
@@ -398,6 +461,7 @@ L3Address GREEDY::getSenderNeighborAddress(INetworkDatagram *datagram) const
 
 simtime_t GREEDY::getNextNeighborExpiration()
 {
+    if(printFunctionName)EV_DEBUG << "In getNextNeighborExpiration()\n";
     simtime_t oldestPosition = neighborPositionTable.getOldestPosition();
     if (oldestPosition == SimTime::getMaxTime())
         return oldestPosition;
@@ -407,11 +471,13 @@ simtime_t GREEDY::getNextNeighborExpiration()
 
 void GREEDY::purgeNeighbors()
 {
+    if(printFunctionName)EV_DEBUG << "In purgeNeighbors()\n";
     neighborPositionTable.removeOldPositions(simTime() - neighborValidityInterval);
 }
 
 std::vector<L3Address> GREEDY::getPlanarNeighbors()
 {
+    if(printFunctionName)EV_DEBUG << "In getPlanarNeighbors()\n";
     std::vector<L3Address> planarNeighbors;
     std::vector<L3Address> neighborAddresses = neighborPositionTable.getAddresses();
     Coord selfPosition = mobility->getCurrentPosition();
@@ -456,6 +522,7 @@ std::vector<L3Address> GREEDY::getPlanarNeighbors()
 
 L3Address GREEDY::getNextPlanarNeighborCounterClockwise(const L3Address& startNeighborAddress, double startNeighborAngle)
 {
+    if(printFunctionName)EV_DEBUG << "In getNextPlanarNeighborCounterClockwise()\n";
     EV_DEBUG << "Finding next planar neighbor (counter clockwise): startAddress = " << startNeighborAddress << ", startAngle = " << startNeighborAngle << endl;
     L3Address bestNeighborAddress = startNeighborAddress;
     double bestNeighborAngleDifference = 2 * M_PI;
@@ -480,7 +547,9 @@ L3Address GREEDY::getNextPlanarNeighborCounterClockwise(const L3Address& startNe
 
 L3Address GREEDY::findNextHop(INetworkDatagram *datagram, const L3Address& destination)
 {
+    if(printFunctionName)EV_DEBUG << "In findNextHop()";
     GREEDYOption *greedyOption = getGreedyOptionFromNetworkDatagram(datagram);
+    if(printFunctionName)EV_DEBUG << greedyOption->getRoutingMode() << endl;
     switch (greedyOption->getRoutingMode()) {
         case GREEDY_GREEDY_ROUTING: return findGreedyRoutingNextHop(datagram, destination);
         case GREEDY_PERIMETER_ROUTING: return findPerimeterRoutingNextHop(datagram, destination);
@@ -490,6 +559,7 @@ L3Address GREEDY::findNextHop(INetworkDatagram *datagram, const L3Address& desti
 
 L3Address GREEDY::findGreedyRoutingNextHop(INetworkDatagram *datagram, const L3Address& destination)
 {
+    if(printFunctionName)EV_DEBUG << "In findGreedyRoutingNextHop()\n";
     EV_DEBUG << "Finding next hop using greedy routing: destination = " << destination << endl;
     GREEDYOption *greedyOption = getGreedyOptionFromNetworkDatagram(datagram);
     L3Address selfAddress = getSelfAddress();
@@ -501,6 +571,8 @@ L3Address GREEDY::findGreedyRoutingNextHop(INetworkDatagram *datagram, const L3A
     for (auto& neighborAddress: neighborAddresses) {
         Coord neighborPosition = neighborPositionTable.getPosition(neighborAddress);
         double neighborDistance = (destinationPosition - neighborPosition).length();
+        EV_DEBUG << "Pos:" << neighborPosition << " Dis:" << neighborDistance << " dest:" << destinationPosition
+                <<" Bes:" << bestDistance << endl;
         if (neighborDistance < bestDistance) {
             bestDistance = neighborDistance;
             bestNeighbor = neighborAddress;
@@ -520,6 +592,7 @@ L3Address GREEDY::findGreedyRoutingNextHop(INetworkDatagram *datagram, const L3A
 
 L3Address GREEDY::findPerimeterRoutingNextHop(INetworkDatagram *datagram, const L3Address& destination)
 {
+    if(printFunctionName)EV_DEBUG << "In findPerimeterRoutingNextHop()\n";
     EV_DEBUG << "Finding next hop using perimeter routing: destination = " << destination << endl;
     GREEDYOption *greedyOption = getGreedyOptionFromNetworkDatagram(datagram);
     L3Address selfAddress = getSelfAddress();
@@ -576,6 +649,7 @@ L3Address GREEDY::findPerimeterRoutingNextHop(INetworkDatagram *datagram, const 
 
 INetfilter::IHook::Result GREEDY::routeDatagram(INetworkDatagram *datagram, const InterfaceEntry *& outputInterfaceEntry, L3Address& nextHop)
 {
+    if(printFunctionName)EV_DEBUG << "In routeDatagram()\n";
     const L3Address& source = datagram->getSourceAddress();
     const L3Address& destination = datagram->getDestinationAddress();
     EV_INFO << "Finding next hop: source = " << source << ", destination = " << destination << endl;
@@ -591,13 +665,14 @@ INetfilter::IHook::Result GREEDY::routeDatagram(INetworkDatagram *datagram, cons
         greedyOption->setSenderAddress(getSelfAddress());
         // KLUDGE: find output interface
         outputInterfaceEntry = interfaceTable->getInterface(1);
-        networkProtocol->reinjectAllQueuedDatagram();
+        //networkProtocol->reinjectAllQueuedDatagram();
         return ACCEPT;
     }
 }
 
 void GREEDY::setGreedyOptionOnNetworkDatagram(INetworkDatagram *datagram)
 {
+    if(printFunctionName)EV_DEBUG << "In setGreedyOptionOnNetworkDatagram()\n";
     cPacket *networkPacket = check_and_cast<cPacket *>(datagram);
     GREEDYOption *greedyOption = createGreedyOption(datagram->getDestinationAddress(), networkPacket->getEncapsulatedPacket());
 #ifdef WITH_IPv4
@@ -607,7 +682,7 @@ void GREEDY::setGreedyOptionOnNetworkDatagram(INetworkDatagram *datagram)
         int oldHlen = dgram->calculateHeaderByteLength();
         ASSERT(dgram->getHeaderLength() == oldHlen);
         dgram->addOption(greedyOption);
-        int newHlen = dgram->calculateHeaderByteLength();
+        int newHlen = dgram->calculateHeaderByteLength();//<----------------!!
         dgram->setHeaderLength(newHlen);
         dgram->addByteLength(newHlen - oldHlen);
         dgram->setTotalLengthField(dgram->getTotalLengthField() + newHlen - oldHlen);
@@ -649,6 +724,7 @@ void GREEDY::setGreedyOptionOnNetworkDatagram(INetworkDatagram *datagram)
 
 GREEDYOption *GREEDY::findGreedyOptionInNetworkDatagram(INetworkDatagram *datagram)
 {
+    if(printFunctionName)EV_DEBUG << "In findGreedyOptionInNetworkDatagram()\n";
     cPacket *networkPacket = check_and_cast<cPacket *>(datagram);
     GREEDYOption *greedyOption = nullptr;
 
@@ -687,6 +763,7 @@ GREEDYOption *GREEDY::findGreedyOptionInNetworkDatagram(INetworkDatagram *datagr
 
 GREEDYOption *GREEDY::getGreedyOptionFromNetworkDatagram(INetworkDatagram *datagram)
 {
+    if(printFunctionName)EV_DEBUG << "In getGreedyOptionFromNetworkDatagram()\n";
     GREEDYOption *greedyOption = findGreedyOptionInNetworkDatagram(datagram);
     if (greedyOption == nullptr)
         throw cRuntimeError("GREEDY option not found in datagram!");
@@ -700,9 +777,27 @@ GREEDYOption *GREEDY::getGreedyOptionFromNetworkDatagram(INetworkDatagram *datag
 INetfilter::IHook::Result GREEDY::datagramPreRoutingHook(INetworkDatagram *datagram, const InterfaceEntry *inputInterfaceEntry, const InterfaceEntry *& outputInterfaceEntry, L3Address& nextHop)
 {
     Enter_Method("datagramPreRoutingHook");
+
+
+    cPacket *networkPacket = check_and_cast<cPacket *>(datagram);
+    GREEDYOption *greedyOption = nullptr;
+
+    IPv4Datagram *dgram = static_cast<IPv4Datagram *>(networkPacket);
+    greedyOption = check_and_cast_nullable<GREEDYOption *>(dgram->findOptionByType(IPOPTION_TLV_GPSR));
+
+    std::string str("ACK of");
+    std::string str2(dgram->getName());
+    if(str2.compare(0, 6,str)!=0){
+        if(printFunctionName)EV_DEBUG << "In datagramPreRoutingHook GREEDY() " << dgram->getName() << ","<< dgram->getSourceAddress()<< "\n";
+        std::string str(dgram->getName());
+        str="ACK of "+str;
+
+        sendACK(createACK(str.c_str(), dgram->getSourceAddress(), neighborPositionTable.getPosition(dgram->getSourceAddress()) ),
+                uniform(0, maxJitter).dbl(), dgram->getSourceAddress());
+    }
     const L3Address& destination = datagram->getDestinationAddress();
     if (destination.isMulticast() || destination.isBroadcast() || routingTable->isLocalAddress(destination)){
-        networkProtocol->reinjectAllQueuedDatagram();
+        //networkProtocol->reinjectAllQueuedDatagram();
         return ACCEPT;
     }else
         return routeDatagram(datagram, outputInterfaceEntry, nextHop);
@@ -710,14 +805,23 @@ INetfilter::IHook::Result GREEDY::datagramPreRoutingHook(INetworkDatagram *datag
 
 INetfilter::IHook::Result GREEDY::datagramLocalOutHook(INetworkDatagram *datagram, const InterfaceEntry *& outputInterfaceEntry, L3Address& nextHop)
 {
+    if(printFunctionName)EV_DEBUG << "In datagramLocalOutHook() of GREEDY\n";
     Enter_Method("datagramLocalOutHook");
     const L3Address& destination = datagram->getDestinationAddress();
     if (destination.isMulticast() || destination.isBroadcast() || routingTable->isLocalAddress(destination)){
-        networkProtocol->reinjectAllQueuedDatagram();
+        //networkProtocol->reinjectAllQueuedDatagram();
         return ACCEPT;
     }else {
-        setGreedyOptionOnNetworkDatagram(datagram);
-        return routeDatagram(datagram, outputInterfaceEntry, nextHop);
+        cPacket *networkPacket = check_and_cast<cPacket *>(datagram);
+        IPv4Datagram *dgram = static_cast<IPv4Datagram *>(networkPacket);
+        int oldHlen = dgram->calculateHeaderByteLength();
+        EV_DEBUG << "length::" << oldHlen << endl;
+        if(oldHlen==60){
+            return routeDatagram(datagram, outputInterfaceEntry, nextHop);
+        }else{
+            setGreedyOptionOnNetworkDatagram(datagram);
+            return routeDatagram(datagram, outputInterfaceEntry, nextHop);
+        }
     }
 }
 
@@ -727,6 +831,7 @@ INetfilter::IHook::Result GREEDY::datagramLocalOutHook(INetworkDatagram *datagra
 
 bool GREEDY::handleOperationStage(LifecycleOperation *operation, int stage, IDoneCallback *doneCallback)
 {
+    if(printFunctionName)EV_DEBUG << "In handleOperationStage()\n";
     Enter_Method_Silent();
     if (dynamic_cast<NodeStartOperation *>(operation)) {
         if ((NodeStartOperation::Stage)stage == NodeStartOperation::STAGE_APPLICATION_LAYER)
@@ -758,6 +863,7 @@ bool GREEDY::handleOperationStage(LifecycleOperation *operation, int stage, IDon
 
 void GREEDY::receiveSignal(cComponent *source, simsignal_t signalID, cObject *obj DETAILS_ARG)
 {
+    if(printFunctionName)EV_DEBUG << "In receiveSignal()\n";
     Enter_Method("receiveChangeNotification");
     if (signalID == NF_LINK_BREAK) {
         EV_WARN << "Received link break" << endl;

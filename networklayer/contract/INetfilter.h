@@ -109,6 +109,7 @@ class INET_API INetfilter
      * cancels the route discovery process.
      */
     virtual void dropQueuedDatagram(const INetworkDatagram *daragram) = 0;
+    virtual void dropQueuedDatagramByString(std::string name) = 0;
 
     /**
      * Requests the network layer to restart the processing of the datagram. This

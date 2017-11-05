@@ -191,7 +191,7 @@ void IdealMac::handleUpperPacket(cPacket *msg)
     }
     else {
         // We are idle, so we can start transmitting right away.
-        EV << "Received " << msg << " for transmission\n";
+        EV << "Received " << msg << " for transmission!!\n";
         startTransmitting(msg);
     }
 }

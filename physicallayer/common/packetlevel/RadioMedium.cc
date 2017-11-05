@@ -228,6 +228,7 @@ bool RadioMedium::isInterferingTransmission(const ITransmission *transmission, c
 
 void RadioMedium::removeNonInterferingTransmissions()
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In removeNonInterferingTransmissions():";
     const simtime_t now = simTime();
     size_t transmissionIndex = 0;
     while (transmissionIndex < transmissions.size() && communicationCache->getCachedInterferenceEndTime(transmissions[transmissionIndex]) <= now)
@@ -335,6 +336,7 @@ const IListening *RadioMedium::getListening(const IRadio *receiver, const ITrans
 
 const IReception *RadioMedium::getReception(const IRadio *receiver, const ITransmission *transmission) const
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In getReception():";
     cacheReceptionGetCount++;
     const IReception *reception = communicationCache->getCachedReception(receiver, transmission);
     if (reception)
@@ -397,6 +399,7 @@ const ISNIR *RadioMedium::getSNIR(const IRadio *receiver, const ITransmission *t
 
 const IReceptionDecision *RadioMedium::getReceptionDecision(const IRadio *radio, const IListening *listening, const ITransmission *transmission, IRadioSignal::SignalPart part) const
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In getReceptionDecision():";
     cacheDecisionGetCount++;
     const IReceptionDecision *decision = communicationCache->getCachedReceptionDecision(radio, transmission, part);
     if (decision)
@@ -411,6 +414,7 @@ const IReceptionDecision *RadioMedium::getReceptionDecision(const IRadio *radio,
 
 const IReceptionResult *RadioMedium::getReceptionResult(const IRadio *radio, const IListening *listening, const ITransmission *transmission) const
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In getReceptionResult():";
     cacheResultGetCount++;
     const IReceptionResult *result = communicationCache->getCachedReceptionResult(radio, transmission);
     if (result)
@@ -524,6 +528,7 @@ IRadioFrame *RadioMedium::createReceiverRadioFrame(const ITransmission *transmis
 
 void RadioMedium::sendToAffectedRadios(IRadio *radio, const IRadioFrame *frame)
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In sendToAffectedRadios():";
     const RadioFrame *radioFrame = check_and_cast<const RadioFrame *>(frame);
     EV_DEBUG << "Sending " << frame << " with " << radioFrame->getBitLength() << " bits in " << radioFrame->getDuration() * 1E+6 << " us transmission duration"
              << " from " << radio << " on " << (IRadioMedium *)this << "." << endl;
@@ -551,6 +556,7 @@ void RadioMedium::sendToAffectedRadios(IRadio *radio, const IRadioFrame *frame)
 
 void RadioMedium::sendToRadio(IRadio *transmitter, const IRadio *receiver, const IRadioFrame *frame)
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In sendToRadio():";
     const Radio *transmitterRadio = check_and_cast<const Radio *>(transmitter);
     const Radio *receiverRadio = check_and_cast<const Radio *>(receiver);
     const ITransmission *transmission = frame->getTransmission();
@@ -598,6 +604,7 @@ cPacket *RadioMedium::receivePacket(const IRadio *radio, IRadioFrame *radioFrame
 
 const IListeningDecision *RadioMedium::listenOnMedium(const IRadio *radio, const IListening *listening) const
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In listenOnMedium():";
     const IListeningDecision *decision = computeListeningDecision(radio, listening, const_cast<const std::vector<const ITransmission *> *>(&transmissions));
     EV_DEBUG << "Listening with " << listening << " on medium by " << radio << " results in " << decision << endl;
     return decision;
@@ -667,6 +674,7 @@ void RadioMedium::sendToAllRadios(IRadio *transmitter, const IRadioFrame *frame)
 
 void RadioMedium::receiveSignal(cComponent *source, simsignal_t signal, long value DETAILS_ARG)
 {
+    //EV_DEBUG << "@@@@@@@@@@@@In receiveSignal():";
     if (signal == IRadio::radioModeChangedSignal || signal == IRadio::listeningChangedSignal || signal == NF_INTERFACE_CONFIG_CHANGED) {
         const Radio *receiverRadio = check_and_cast<const Radio *>(source);
         for (const auto transmission : transmissions) {

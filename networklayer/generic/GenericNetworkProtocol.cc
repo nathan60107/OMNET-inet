@@ -528,6 +528,11 @@ void GenericNetworkProtocol::dropQueuedDatagram(const INetworkDatagram *datagram
     }
 }
 
+void GenericNetworkProtocol::dropQueuedDatagramByString(std::string name)
+{
+    //
+}
+
 void GenericNetworkProtocol::reinjectQueuedDatagram(const INetworkDatagram *datagram)
 {
     Enter_Method("reinjectDatagram()");

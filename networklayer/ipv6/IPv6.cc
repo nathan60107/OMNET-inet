@@ -966,6 +966,11 @@ void IPv6::dropQueuedDatagram(const INetworkDatagram *datagram)
     }
 }
 
+void IPv6::dropQueuedDatagramByString(std::string name)
+{
+    //
+}
+
 void IPv6::reinjectQueuedDatagram(const INetworkDatagram *datagram)
 {
     Enter_Method("reinjectDatagram()");

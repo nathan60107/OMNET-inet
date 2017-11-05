@@ -285,6 +285,7 @@ class INET_API IPv4 : public QueueBase, public INetfilter, public ILifecycle, pu
      * drop a previously queued datagram
      */
     void dropQueuedDatagram(const INetworkDatagram *datagram) override;
+    void dropQueuedDatagramByString(std::string name) override;
 
     /**
      * re-injects a previously queued datagram

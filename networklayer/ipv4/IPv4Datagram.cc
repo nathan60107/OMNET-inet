@@ -42,6 +42,7 @@ void IPv4Datagram::addOption(TLVOptionBase *opt, int atPos)
 int IPv4Datagram::calculateHeaderByteLength() const
 {
     int length = utils::roundUp(20 + options_var.getLength(), 4);
+    //EV_DEBUG << "length::" << length << endl;
     ASSERT(length >= 20 && length <= 60 && (length % 4 == 0));
 
     return length;
