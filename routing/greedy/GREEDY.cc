@@ -564,7 +564,8 @@ L3Address GREEDY::findGreedyRoutingNextHop(INetworkDatagram *datagram, const L3A
     GREEDYOption *greedyOption = getGreedyOptionFromNetworkDatagram(datagram);
     L3Address selfAddress = getSelfAddress();
     Coord selfPosition = mobility->getCurrentPosition();
-    Coord destinationPosition = greedyOption->getDestinationPosition();
+    Coord destinationPosition = (greedyOption->getDestinationPosition().isUnspecified())?
+            getDestinationPosition(destination):greedyOption->getDestinationPosition();
     double bestDistance = (destinationPosition - selfPosition).length();
     L3Address bestNeighbor;
     std::vector<L3Address> neighborAddresses = neighborPositionTable.getAddresses();

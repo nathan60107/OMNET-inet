@@ -101,6 +101,7 @@ class INET_API IPv4 : public QueueBase, public INetfilter, public ILifecycle, pu
     HookList hooks;
     typedef std::list<QueuedDatagramForHook> DatagramQueueForHooks;
     DatagramQueueForHooks queuedDatagramsForHooks;
+    std::list<std::string> queuedDatagramsForHooksForCheckACK;
 
   protected:
     // utility: look up interface from getArrivalGate()

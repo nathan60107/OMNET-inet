@@ -973,16 +973,20 @@ void IPv4::dropQueuedDatagram(const INetworkDatagram *datagram)
 void IPv4::dropQueuedDatagramByString(std::string name)
 {
     Enter_Method("dropQueuedDatagram()");
-    EV_DEBUG << "before:" <<queuedDatagramsForHooks.size() ;
+    EV_DEBUG << "before:" <<queuedDatagramsForHooks.size();
+    std::string str(name);
+    queuedDatagramsForHooksForCheckACK.push_back(str);
+    EV_DEBUG << "print deleted queue\n";
+    for (auto iter = queuedDatagramsForHooksForCheckACK.begin(); iter != queuedDatagramsForHooksForCheckACK.end(); iter++){
+        EV_DEBUG << *iter;
+    }
+
+
     for (auto iter = queuedDatagramsForHooks.begin(); iter != queuedDatagramsForHooks.end(); iter++) {
         if(iter==queuedDatagramsForHooks.begin()){
             EV_DEBUG << name << " == " << iter->datagram->getName() << "?\n";
         }
         if (name.compare(iter->datagram->getName())==0) {
-            EV_DEBUG << "print queue\n";
-            for (auto iter = queuedDatagramsForHooks.begin(); iter != queuedDatagramsForHooks.end(); iter++){
-                EV_DEBUG << iter->datagram->getName();
-            }
             EV_DEBUG << ", DELETE:" << iter->datagram->getName();
             queuedDatagramsForHooks.erase(iter);
             EV_DEBUG << ", delete:" << name << ", after:" <<queuedDatagramsForHooks.size() << endl;
@@ -1059,10 +1063,21 @@ void IPv4::reinjectAllQueuedDatagram()
                 datagramLocalOut(datagram, iter->outIE, iter->nextHopAddr);
                 break;
             }
-            case INetfilter::IHook::PREROUTING:
+            case INetfilter::IHook::PREROUTING:{
+                L3Address L3A(iter->nextHopAddr);
+                IHook::Result r;
+                for (auto & elem : hooks) {
+                    r = elem.second->datagramPreRoutingHook(datagram, iter->inIE, iter->outIE, L3A);
+                    iter->nextHopAddr = L3A.toIPv4();
+                    break;
+                }
+
+                EV_INFO << "The hookType is:PREROUTING" << iter->datagram->getName() << " "
+                        << iter->nextHopAddr << " " << r <<endl;
+
                 preroutingFinish(datagram, iter->inIE, iter->outIE, iter->nextHopAddr);
                 break;
-
+            }
             case INetfilter::IHook::POSTROUTING:
                 fragmentAndSend(datagram, iter->outIE, iter->nextHopAddr);
                 break;
